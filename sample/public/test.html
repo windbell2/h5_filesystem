@@ -1,91 +1,56 @@
 <script>
 //for chrome 创建fileSystem ,ES6
+//https://www.html5rocks.com/zh/tutorials/file/filesystem/
 window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
 window.resolveLocalFileSystemURL = window.resolveLocalFileSystemURL || window.webkitResolveLocalFileSystemURL
 
-    class myFS{
-        constructor(){
 
+//window.requestFileSystem(window.PERSISTENT, 5*1024*1024 /*5MB*/, function(fs){alert(fs)}, function(err){alert(err)});
+
+    class myFS {
+        constructor(){
+            this.__fs=null;
+            this.requestSpace(2*1024)
+            .then(fs=>{
+                this.__fs =fs;
+            })
+            .catch(err=>{
+                throw err
+            })
         }
         requestSpace(grantedBytes=1024){
             return new Promise((resolve,reject)=>{
                 navigator.webkitPersistentStorage.requestQuota(grantedBytes,
-                function (_grantedBytes) {
+                _grantedBytes=> {
                         console.log("申请空间开始");
                         window.requestFileSystem(window.PERSISTENT, grantedBytes,
-                        async function (fs) {
+                        async fs=> {
                                 console.log("申请空间成功:"+grantedBytes+"byte");
-                                let size = await getSpaceSize();
-                                console.log(`PERSISTENT:${size.used}/${size.remaining}  - ${size.used/size.remaining}%`);
+                                let size = await this.getSpaceSize();
+                                console.log(fs);
+                                console.log(`PERSISTENT:spaceName:${fs.name} ${size.used}/${size.remaining}  - ${size.used/size.remaining}%`);
                                 resolve(fs);
                             },
                             function (err){
                                 console.log("申请空间出错"+err)
                                 reject(new Error(err));
-                    });
+                        }
+                    );
                 });
             });
         }
+        async getSpaceSize(){ //获取stroe空间信息
+            return new Promise((resolve,reject)=>{
+                navigator.webkitPersistentStorage.queryUsageAndQuota((used,remaining)=>{
+                    resolve({used,remaining})
+                })
+
+            })
+        }   
     }
 
- let requestSpace=(grantedBytes=1124)=> //申请永久store空间
-    new Promise((resolve,reject)=>{
-        navigator.webkitPersistentStorage.requestQuota(grantedBytes,
-        function (_grantedBytes) {
-                console.log("申请空间开始");
-                window.requestFileSystem(window.PERSISTENT, grantedBytes,
-                async function (fs) {
-                        console.log("申请空间成功:"+grantedBytes+"byte");
-                        let size = await getSpaceSize();
-                        console.log(`PERSISTENT:${size.used}/${size.remaining}  - ${size.used/size.remaining}%`);
-                        resolve(fs);
-                    },
-                    function (err){
-                        console.log("申请空间出错"+err)
-                        reject(new Error(err));
-            });
-        });
-    });
 
-
-let checkHasSpace = async()=>{ //检验是否存在store空间
-        let size = await getSpaceSize();
-        if(!size.remaining){
-            console.log("未申请空间。");return false
-        }else{
-            console.log('PERSISTENT: ' + size.used + '/' + size.remaining + ' - ' + size.used / size.remaining + '%');return true;
-        }
-}
-let getSpaceSize =()=> //获取stroe空间信息
-    new Promise((resolve,reject)=>{
-        navigator.webkitPersistentStorage.queryUsageAndQuota((used,remaining)=>{
-            resolve({used,remaining})
-        })
-
-    })
-
-function clearSpace(){ //清楚申请的空间
-    requestSpace(0)
-}
-async function Main(){ //Main,创建空间，获取FS
-    let FS;
-
-    //if((await checkHasSpace())){
-        await requestSpace(512)
-       .then(fs=>{
-           FS=fs;
-           window.FS =fs;
-        })
-       .catch(err=>{
-           throw err
-        })
-    //}else{
-        
-    //}
-    //await checkHasSpace()
-}
-
-Main();
+new myFS();
 
 function save(dataModel) {
     var value = dataModel.serialize();
