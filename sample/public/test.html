@@ -1,0 +1,94 @@
+<script>
+ function requestSpace(){
+    return new Promise((resolve,reject)=>{
+        navigator.webkitPersistentStorage.requestQuota(2000,
+        function (grantedBytes) {
+                console.log("申请空间开始");
+                window.webkitRequestFileSystem(window.PERSISTENT, grantedBytes,
+                async function (fs) {
+                        console.log("申请空间成功:"+grantedBytes+"byte");
+                        let size = await getSpaceSize();
+                        console.log('PERSISTENT: ' + size.used + '/' + size.remaining + ' - ' + size.used / size.remaining + '%');
+
+                        console.log(fs);
+                        resolve(fs);
+                        window.fs = fs;
+                       
+                    },
+                    function (err){
+                        console.log("申请空间出错")
+                        console.log(err);
+                        reject(err);
+            });
+        });
+    });
+}
+let checkHasSpace= async()=>{
+
+        let size = await getSpaceSize();
+        if(size.remaining == ""){
+            console.log("未申请空间。");
+            return true
+        }else{
+            console.log('PERSISTENT: ' + size.used + '/' + size.remaining + ' - ' + size.used / size.remaining + '%');
+            return false;
+        }
+}
+
+let getSpaceSize =()=>{
+    return new Promise((resolve,reject)=>{
+        navigator.webkitPersistentStorage.queryUsageAndQuota(
+        function(used, remaining){
+            resolve({used,remaining})
+        })
+    })
+}
+
+function clearSpace(){
+    
+}
+async function createSpace(){
+    let c = await checkHasSpace();
+    if(!c){
+        await requestSpace();
+    }
+}
+
+createSpace();
+
+function save(dataModel) {
+    var value = dataModel.serialize();
+    fs.root.getFile('meters.txt', {create: true}, function (fileEntry) {
+        console.log(fileEntry.toURL());
+        fileEntry.createWriter(function (fileWriter) {
+            fileWriter.onwriteend = function () {
+                console.log(dataModel.size() + ' datas are saved');
+            };
+            var blob = new Blob([value], {type: 'text/plain'});
+            fileWriter.write(blob);
+        });
+    });
+    return value;
+}
+function restore(dataModel) {
+    fs.root.getFile('meters.txt', {}, function (fileEntry) {
+        fileEntry.file(function (file) {
+            var reader = new FileReader();
+            reader.onloadend = function (e) {
+                dataModel.clear();
+                dataModel.deserialize(reader.result);
+                console.log(dataModel.size() + ' datas are restored');
+            };
+            reader.readAsText(file);
+        });
+    });
+    return '';
+}
+function clear() {
+    fs.root.getFile('meters.txt', {create: false}, function(fileEntry) {
+        fileEntry.remove(function() {
+            console.log(fileEntry.toURL() + ' is removed');
+        });
+    });    
+}
+</script>
